@@ -1,10 +1,12 @@
 import numpy as np
 import cv2 
+import os
 
-def metodo_watersheed():
+images = ['road0.png','road1.png','road10.png','road100.png','road101.png','road102.png','road103.png','road104.png','road105.png','road106.png']
+
+def metodo_watersheed(images):   
     #Parte 1 para cargar las imagenes y hacer la escala de grises 
-    images = ['road0.png','road1.png','road10.png','road100.png','road101.png','road102.png','road103.png','road104.png','road105.png','road106.png']
-
+ 
     for i in images:
         img1 = cv2.imread(i)
         img = cv2.convertScaleAbs(img1)
@@ -50,10 +52,40 @@ def metodo_watersheed():
         colormap = cv2.applyColorMap(markers_img, cv2.COLORMAP_JET)
 
         # Mostramos la imagen segmentada
-        cv2.imshow("Segmentada", colormap)
+        cv2.imshow("Segmentada", colormap) 
 
         # Esperamos a que el usuario presione una tecla para cerrar las ventanas
         cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-metodo_watersheed()
+def ruido_Gaus(Iruido):
+    for i in Iruido:
+        img = cv2.imread(i)
+        img1 = cv2.convertScaleAbs(img)
+        # Convertimos la imagen a escala de grises
+        gray = cv2.cvtColor(img1,cv2.COLOR_BGR2GRAY)
+        ruido = np.zeros(gray.shape, np.int16)
+        #ruido Gausiano
+        cv2.randn(ruido,0,25)
+
+        #Ruido gausiano
+        Gesc_5 = cv2.add(gray,np.array(ruido *0.05, dtype = np.uint8))
+        Gesc_10 = cv2.add(gray,np.array(ruido *0.1, dtype = np.uint8))
+        Gesc_20 = cv2.add(gray,np.array(ruido *0.2 , dtype = np.uint8))
+
+        # Creamos una lista de nombres de archivo válidos
+        filenames = [f"{i}_{j}.png" for j in range(3)]
+        # Guardamos las imágenes con nombres de archivo válidos
+        cv2.imwrite(filenames[0], Gesc_5)
+        cv2.imwrite(filenames[1], Gesc_10)
+        cv2.imwrite(filenames[2], Gesc_20)
+        cv2.imshow('Imagenes con ruido',filenames)
+
+        # Llamamos a metodo_watersheed con los nombres de archivo válidos
+        metodo_watersheed(filenames)
+ 
+    
+#metodo_watersheed(images)
+
+ruido_Gaus(images)
+#metodo_watersheed(ruido_Gaus([images])) 
