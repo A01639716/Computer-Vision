@@ -4,6 +4,7 @@ import os
 
 images = ['road0.png','road1.png','road10.png','road100.png','road101.png','road102.png','road103.png','road104.png','road105.png','road106.png']
 
+#Metodos de segmentacion
 def metodo_watersheed(images):   
     #Parte 1 para cargar las imagenes y hacer la escala de grises 
  
@@ -58,7 +59,40 @@ def metodo_watersheed(images):
         cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+def K_means(images): 
+    for i in images:
+        img = cv2.imread(i)
+        img_float = np.float32(img) / 255.0
+
+        # Definimos los parámetros del método k-means
+        num_clusters = 4
+        max_iteraciones = 10
+        epsilon = 1.0
+
+        # Aplicamos el método k-means
+        resultado = cv2.kmeans(img_float.reshape(-1, 3), num_clusters, None, 
+                            criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, max_iteraciones, epsilon), 
+                            attempts=10, flags=cv2.KMEANS_RANDOM_CENTERS)
+
+        # Obtenemos las etiquetas de cada pixel y los centroides de cada cluster
+        labels = resultado[1]
+        centroids = resultado[2]
+
+        # Asignamos a cada pixel el valor del centroide de su cluster correspondiente
+        segmentado = centroids[labels.flatten()].reshape(img.shape)
+
+        # Convertimos la imagen segmentada a valores enteros entre 0 y 255
+        segmentado = np.uint8(segmentado * 255)
+
+        # Mostramos la imagen original y la imagen segmentada
+        cv2.imshow("Original", img)
+        cv2.imshow("Segmentada", segmentado)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+#ruido Gausiano mas todos los metodos
 def ruido_Gaus(Iruido):
+    seg = input('Ingrese el metodo de segmentacion que desee 1-k-means 2- 3- 4-watersheed: ')
     for i in Iruido:
         img = cv2.imread(i)
         img1 = cv2.convertScaleAbs(img)
@@ -73,19 +107,25 @@ def ruido_Gaus(Iruido):
         Gesc_10 = cv2.add(gray,np.array(ruido *0.1, dtype = np.uint8))
         Gesc_20 = cv2.add(gray,np.array(ruido *0.2 , dtype = np.uint8))
 
+
         # Creamos una lista de nombres de archivo válidos
         filenames = [f"{i}_{j}.png" for j in range(3)]
         # Guardamos las imágenes con nombres de archivo válidos
         cv2.imwrite(filenames[0], Gesc_5)
         cv2.imwrite(filenames[1], Gesc_10)
         cv2.imwrite(filenames[2], Gesc_20)
-        cv2.imshow('Imagenes con ruido',filenames)
 
         # Llamamos a metodo_watersheed con los nombres de archivo válidos
-        metodo_watersheed(filenames)
- 
+        if seg == '1':
+            input("imagenes con diferente % de ruido")
+            K_means(filenames)
+        elif seg == '2':
+            'x'
+        elif seg == '3':
+            'x'
+        elif seg == '4':
+            metodo_watersheed(filenames)     
     
 #metodo_watersheed(images)
-
+#K_means(images)
 ruido_Gaus(images)
-#metodo_watersheed(ruido_Gaus([images])) 
