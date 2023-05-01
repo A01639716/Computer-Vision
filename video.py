@@ -4,8 +4,12 @@ import numpy as np
 # Configura la captura de video desde la cámara
 cap = cv2.VideoCapture(0)
 
-# Crear el objeto para guardar el resultado de k-means
-kmeans_result = np.zeros((480, 640, 3), dtype=np.uint8)
+def mean_shift_segmentation(img):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    dst = cv2.pyrMeanShiftFiltering(hsv, 10, 30)
+    result = cv2.cvtColor(dst, cv2.COLOR_HSV2BGR)
+    return result
+
 
 # Función que aplica el método k-means a una imagen
 def kmeans_segmentation(frame):
@@ -27,7 +31,7 @@ def kmeans_segmentation(frame):
     return res2
 
 # Función para procesar el video utilizando el método de Watershed
-def process_video(frame):
+def water_sheedvideo(frame):
     # Convertir el marco a escala de grises
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -65,21 +69,25 @@ while(True):
     # Capturar un marco desde la cámara
     ret, frame = cap.read()
 
-    
-     
-       
+    #segmentación mean shift
+    ms_frame = mean_shift_segmentation(frame)
+
 
     # Mostrar el video capturado
     cv2.imshow('Capturado',frame)
 
+    #mostrar la resultado de la segmentación mean shift
+    cv2.imshow('Resultado de la segmentación mean shift', ms_frame)
+
+
     #Procesar utilizando el metodo kmeans
-    kmeans_result = kmeans_segmentation(frame)
+    #kmeans_result = kmeans_segmentation(frame)
 
     #Mostrar resultado del video procesado por kmeans
-    cv2.imshow('K-Means Result', kmeans_result)
+    #cv2.imshow('K-Means Result', kmeans_result)
 
     # Procesar el marco utilizando el método de Watershed
-    #processed_frame = process_video(frame)
+    #processed_frame = water_sheedvideo(frame)
 
     # Mostrar el video procesado
     #cv2.imshow('Watershed',processed_frame)
