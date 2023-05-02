@@ -45,7 +45,6 @@ def metodo_watersheed(images):
 
         # Mostramos la imagen original y la segmentada
         cv2.imshow("Original",img)
-        cv2.waitKey(0)
         # Convertimos la matriz de marcadores a una imagen de escala de grises
         markers_img = cv2.convertScaleAbs(markers)
 
@@ -119,7 +118,7 @@ def Mean_shift(images):
 
 #ruido Gausiano mas todos los metodos
 def ruido_Gaus(Iruido):
-    seg = input('Ingrese el metodo de segmentacion que desee 1-k-means 2- 3- 4-watersheed: ')
+    seg = input('Ingrese el metodo de segmentacion que desee 1-k-means 2-Mean-shift 3-watersheed: ')
     for i in Iruido:
         img = cv2.imread(i)
         img1 = cv2.convertScaleAbs(img)
@@ -144,117 +143,131 @@ def ruido_Gaus(Iruido):
 
         # Llamamos a metodo_watersheed con los nombres de archivo válidos
         if seg == '1':
-            input("imagenes con diferente % de ruido")
             K_means(filenames)
         elif seg == '2':
             Mean_shift(filenames)
         elif seg == '3':
-            'x'
-        elif seg == '4':
-            metodo_watersheed(filenames)     
+            metodo_watersheed(filenames)
+        else:
+            print('metodo no encontrado')
+            break     
+
+def video():
+    seg = input('Ingrese el metodo de segmentacion por el que desea imprimir: 1-k-means 2-mean_shift 3-watersheed: ')
+    # Configura la captura de video desde la cámara
+    cap = cv2.VideoCapture(0)
+
+    def mean_shift_segmentation(img):
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        dst = cv2.pyrMeanShiftFiltering(hsv, 10, 30)
+        result = cv2.cvtColor(dst, cv2.COLOR_HSV2BGR)
+        return result
 
 
-# Configura la captura de video desde la cámara
-cap = cv2.VideoCapture(0)
+    # Función que aplica el método k-means a una imagen
+    def kmeans_segmentation(frame):
+        # Preprocesamiento de la imagen
+        # Configuración de los parámetros del método k-means
+        K = 3 # Número de clústeres
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0) # Criterios de parada
+        attempts = 10 # Número de veces que se ejecuta el método con diferentes centroides iniciales
+        
+        Z = frame.reshape((-1,3))
+        Z = np.float32(Z)
+        ret, label, center = cv2.kmeans(Z, K, None, criteria, attempts, cv2.KMEANS_RANDOM_CENTERS)
+        
+        # Convertir los centroides en el tipo de datos correcto y hacer una imagen
+        center = np.uint8(center)
+        res = center[label.flatten()]
+        res2 = res.reshape((frame.shape))
+        
+        return res2
 
-def mean_shift_segmentation(img):
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    dst = cv2.pyrMeanShiftFiltering(hsv, 10, 30)
-    result = cv2.cvtColor(dst, cv2.COLOR_HSV2BGR)
-    return result
+    # Función para procesar el video utilizando el método de Watershed
+    def water_sheedvideo(frame):
+        # Convertir el marco a escala de grises
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+        # Aplicar la transformación de umbral
+        ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
 
-# Función que aplica el método k-means a una imagen
-def kmeans_segmentation(frame):
-    # Preprocesamiento de la imagen
-    # Configuración de los parámetros del método k-means
-    K = 3 # Número de clústeres
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0) # Criterios de parada
-    attempts = 10 # Número de veces que se ejecuta el método con diferentes centroides iniciales
-    
-    Z = frame.reshape((-1,3))
-    Z = np.float32(Z)
-    ret, label, center = cv2.kmeans(Z, K, None, criteria, attempts, cv2.KMEANS_RANDOM_CENTERS)
-    
-    # Convertir los centroides en el tipo de datos correcto y hacer una imagen
-    center = np.uint8(center)
-    res = center[label.flatten()]
-    res2 = res.reshape((frame.shape))
-    
-    return res2
+        # Aplicar la transformación de apertura
+        kernel = np.ones((3,3), np.uint8)
+        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations = 2)
 
-# Función para procesar el video utilizando el método de Watershed
-def water_sheedvideo(frame):
-    # Convertir el marco a escala de grises
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # Aplicar la transformación de fondo
+        sure_bg = cv2.dilate(opening, kernel, iterations = 3)
 
-    # Aplicar la transformación de umbral
-    ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+        # Aplicar la transformación de detección de área desconocida
+        dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+        ret, sure_fg = cv2.threshold(dist_transform, 0.7*dist_transform.max(), 255, 0)
 
-    # Aplicar la transformación de apertura
-    kernel = np.ones((3,3), np.uint8)
-    opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations = 2)
+        sure_fg = np.uint8(sure_fg)
+        unknown = cv2.subtract(sure_bg,sure_fg)
 
-    # Aplicar la transformación de fondo
-    sure_bg = cv2.dilate(opening, kernel, iterations = 3)
+        # Aplicar la transformación de etiquetado de marcadores
+        ret, markers = cv2.connectedComponents(sure_fg)
 
-    # Aplicar la transformación de detección de área desconocida
-    dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
-    ret, sure_fg = cv2.threshold(dist_transform, 0.7*dist_transform.max(), 255, 0)
+        # Agregar un marcador para las áreas desconocidas
+        markers[unknown==255] = 0
 
-    sure_fg = np.uint8(sure_fg)
-    unknown = cv2.subtract(sure_bg,sure_fg)
+        # Aplicar el método de Watershed
+        markers = cv2.watershed(frame,markers)
+        frame[markers == -1] = [255,0,0]
 
-    # Aplicar la transformación de etiquetado de marcadores
-    ret, markers = cv2.connectedComponents(sure_fg)
+        return frame
 
-    # Agregar un marcador para las áreas desconocidas
-    markers[unknown==255] = 0
+    # Bucle principal para mostrar el video capturado y el video procesado
+    while(True):
+        # Capturar un marco desde la cámara
+        ret, frame = cap.read()
 
-    # Aplicar el método de Watershed
-    markers = cv2.watershed(frame,markers)
-    frame[markers == -1] = [255,0,0]
+        #segmentación mean shift
+        if seg == '1':
+            ms_frame = kmeans_segmentation(frame)
+        elif seg == '2':
+            ms_frame = mean_shift_segmentation(frame)
+        elif seg == '3':
+            ms_frame = water_sheedvideo(frame)
 
-    return frame
+        # Mostrar el video capturado
+        cv2.imshow('Capturado',frame)
 
-# Bucle principal para mostrar el video capturado y el video procesado
-while(True):
-    # Capturar un marco desde la cámara
-    ret, frame = cap.read()
-
-    #segmentación mean shift
-    ms_frame = mean_shift_segmentation(frame)
-
-
-    # Mostrar el video capturado
-    cv2.imshow('Capturado',frame)
-
-    #mostrar la resultado de la segmentación mean shift
-    cv2.imshow('Resultado de la segmentación mean shift', ms_frame)
+        #mostrar la resultado de la segmentación mean shift
+        #cv2.imshow('Resultado de la segmentación mean shift', ms_frame)
 
 
-    #Procesar utilizando el metodo kmeans
-    #kmeans_result = kmeans_segmentation(frame)
+        #Procesar utilizando el metodo kmeans
+        if seg == '1':
+            kmeans_result = kmeans_segmentation(frame)
+            cv2.imshow('K-Means Result', kmeans_result)
+        elif seg == '2':
+            kmeans_result = mean_shift_segmentation(frame)
+            cv2.imshow('mean_shift', kmeans_result)
+        elif seg == '3':
+            kmeans_result = water_sheedvideo(frame)
+            cv2.imshow('water_sheed', kmeans_result)
+        
 
-    #Mostrar resultado del video procesado por kmeans
-    #cv2.imshow('K-Means Result', kmeans_result)
+        #Mostrar resultado del video procesado por kmeans
 
-    # Procesar el marco utilizando el método de Watershed
-    #processed_frame = water_sheedvideo(frame)
+        # Procesar el marco utilizando el método de Watershed
+        #processed_frame = water_sheedvideo(frame)
 
-    # Mostrar el video procesado
-    #cv2.imshow('Watershed',processed_frame)
+        # Mostrar el video procesado
+        #cv2.imshow('Watershed',processed_frame)
 
-    # Salir del bucle si se presiona la tecla 'q'
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        # Salir del bucle si se presiona la tecla 'q'
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 
-# Liberar los recursos y cerrar las ventanas
-cap.release()
-cv2.destroyAllWindows()
+    # Liberar los recursos y cerrar las ventanas
+    cap.release()
+    cv2.destroyAllWindows()
 
-#metodo_watersheed(images)
-#K_means(images)
-#Mean_shift(images)
-#ruido_Gaus(images)
+K_means(images)
+Mean_shift(images)
+metodo_watersheed(images)
+ruido_Gaus(images)
+video()
